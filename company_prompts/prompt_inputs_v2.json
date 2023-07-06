@@ -1,0 +1,10 @@
+{
+    "wandb": {
+        "new_feature": "Model Explainability Toolkit (MXT)",
+        "new_feature_desc": "Enables users to interpret and explain the outputs and decision-making of their AI Models."
+    },
+    "langchain": {
+        "new_feature": "Model Training Wizard (MTW)",
+        "new_feature_desc": " A user-friendly interface that guides users through the process of training their own custom language models. It would provide step-by-step instructions, dataset management tools, and performance evaluation metrics to help users create high-quality models tailored to their specific needs."
+    }
+}
