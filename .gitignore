@@ -1,4 +1,4 @@
-synap_labs_env/
+synap_labs_github_env/
 wandb/
 .env
 tasks.txt
