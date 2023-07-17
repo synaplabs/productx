@@ -5,7 +5,8 @@ from generate_prd_v1 import generate_prd_v1
 from generate_prd_v2 import generate_prd_v2
 from generate_prd_v3 import generate_prd_v3
 from generate_prd_v3_palm import generate_prd_v3_palm
-
+from generate_chat_prd_gpt import generate_chat_prd_gpt
+from generate_chat_prd_vertexai import generate_chat_prd_vertexai
 
 def get_prd(new_feature, new_feature_desc, prd_version):
     wandb_name = f"{new_feature}_prd_{prd_version}"
@@ -23,6 +24,14 @@ def get_prd(new_feature, new_feature_desc, prd_version):
         output = generate_prd_v3_palm(
             new_feature, new_feature_desc, wandb_name)
 
+    elif prd_version == "Chat PRD (GPT-4)":
+        output, callback = generate_chat_prd_gpt(
+            new_feature, new_feature_desc, wandb_name)
+
+    elif prd_version == "Chat PRD (Vertex AI)":
+        output = generate_chat_prd_vertexai(
+            new_feature, new_feature_desc, wandb_name)
+
     end_time = time.time()
     total_time = str(int(end_time - start_time))
     return output, total_time
@@ -36,7 +45,7 @@ def main():
 
     # Create a button and check if both text input fields are not empty before enabling it
     prd_version = st.radio("Select PRD Version:",
-                           ("Version 1", "Version 2", "Version 3 (GPT-3.5-Turbo)", "Version 3 (Palm)"))
+                           ("Version 1", "Version 2", "Version 3 (GPT-3.5-Turbo)", "Version 3 (Palm)", "Chat PRD (GPT-4)", "Chat PRD (Vertex AI)"))
     if st.button("Get PRD", disabled=not (feature_name_input and feature_description_input)):
         with st.spinner(text="Generating PRD..."):
             if 'output' not in st.session_state:
