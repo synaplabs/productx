@@ -1,10 +1,5 @@
 import streamlit as st
-import json
 import time
-from generate_prd_v1 import generate_prd_v1
-from generate_prd_v2 import generate_prd_v2
-from generate_prd_v3 import generate_prd_v3
-from generate_prd_v3_palm import generate_prd_v3_palm
 from generate_chat_prd_gpt import generate_chat_prd_gpt
 from generate_chat_prd_vertexai import generate_chat_prd_vertexai
 
