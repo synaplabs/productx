@@ -2,7 +2,7 @@ import vertexai
 from vertexai.preview.language_models import ChatModel
 from google.oauth2 import service_account
 import wandb
-from wandb_addons.prompts import Trace
+# from wandb_addons.prompts import Trace
 import streamlit as st
 import datetime as dt
 
@@ -71,17 +71,17 @@ Product Description: {product_desc}"""
     status = "success"
     response_text = chat._context
 
-    root_span = Trace(
-        name="root_span",
-        kind="llm",
-        status_code=status,
-        start_time_ms=start_time_ms,
-        end_time_ms=end_time_ms,
-        inputs={"system_prompt": chat._context},
-        outputs={"response": ""},
-    )
+    # root_span = Trace(
+    #     name="root_span",
+    #     kind="llm",
+    #     status_code=status,
+    #     start_time_ms=start_time_ms,
+    #     end_time_ms=end_time_ms,
+    #     inputs={"system_prompt": chat._context},
+    #     outputs={"response": ""},
+    # )
 
-    root_span.log(name="vertexai-trace")
+    # root_span.log(name="vertexai-trace")
 
     prd = ""
 
@@ -99,17 +99,17 @@ Product Description: {product_desc}"""
         status = "success"
         response_text = response.text
 
-        root_span = Trace(
-            name="root_span",
-            kind="llm",
-            status_code=status,
-            start_time_ms=start_time_ms,
-            end_time_ms=end_time_ms,
-            inputs={"user_prompt": chat._message_history[-2].content},
-            outputs={"response": response_text},
-        )
+        # root_span = Trace(
+        #     name="root_span",
+        #     kind="llm",
+        #     status_code=status,
+        #     start_time_ms=start_time_ms,
+        #     end_time_ms=end_time_ms,
+        #     inputs={"user_prompt": chat._message_history[-2].content},
+        #     outputs={"response": response_text},
+        # )
 
-        root_span.log(name="vertexai-trace")
+        # root_span.log(name="vertexai-trace")
 
     wandb.log({"prd": prd})
     wandb.finish()
