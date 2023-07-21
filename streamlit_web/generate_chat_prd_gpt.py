@@ -51,12 +51,18 @@ First, list out current and potential competitors. Current competitors should in
 Use all the above competitors to create a competitive analysis of these applications in a tabular form using the following points - user base, user region, different features supported, and pricing tiers. Don't limit yourself to these categories and think of other categories yourself. Return the output in a well-structured Markdown table""",
     """Feature Requirements:
 What are some of the important features that should be implemented? Follow the MoSCoW format (Must have, Should have, Could have, Won’t have, along with why). How are we going to collect user inputs and use user data that we collect to make the product better and add other features?""",
+    """Launch Strategy:
+Compare US vs International markets for this product. Also, analyze this product and figure out what customer demographic is this product for. Based on these things, come up with a detailed launch strategy for the product. List the TAM vs SAM vs SOM. TAM or Total Available Market is the total market demand for a product or service. SAM or Serviceable Available Market is the segment of the TAM targeted by your products and services which is within your geographical reach. SOM or Serviceable Obtainable Market is the portion of SAM that you can capture.""",
+    """User Stories:
+Create user stories for the product. User stories are short, simple descriptions of a feature told from the perspective of the person who desires the new capability, usually a user or customer of the system. They typically follow a simple template: As a < type of user >, I want < some goal > so that < some reason >. For example, As a college student, I want to be able to share my notes with my friends so that I can help them with their studies.""",
     """Acceptance Criteria:
 Define the quality of completeness required to be able to get to the MVP stage of this product.""",
     """Success Metrics:
 How do we define success in this product? What are the KPIs to look out for? How are they measured? Why do those KPIs matter? How are we going to use these KPIs to make the product better?""",
     """Technical Feasibilities:
 Outline the technical roadmap for this product. What mobile devices should this application be available for? What is a scalable and reliable tech stack which can be used for the frontend and the backend for this application?""",
+    """Timeline: 
+Define the timeline for the product development. In addition to the timeline, what are the resources required to complete this project. Think about the resources required for each stage of the project, the number of employees required for each stage, and the time required for each stage."""
 ]
 
 
