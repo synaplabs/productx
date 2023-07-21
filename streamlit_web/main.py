@@ -63,7 +63,7 @@ def main():
             pass
 
         # if not st.button("Finish Editing"):
-        if not st.button("Edit PRD"):
+        if st.button("Edit PRD"):
             col1, col2 = st.columns(2)
 
             with col1:
