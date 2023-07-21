@@ -58,10 +58,12 @@ def main():
         st.download_button(label="Download PRD", data=st.session_state.edited_output,
                            file_name=f"{feature_name_input}_prd_{prd_version[0]+prd_version[-1]}.md", mime="text/markdown")
 
-        if st.button("Edit PRD"):
+        # if st.button("Edit PRD"):
+        if st.button("Finish Editing"):
             pass
 
-        if not st.button("Finish Editing"):
+        # if not st.button("Finish Editing"):
+        if not st.button("Edit PRD"):
             col1, col2 = st.columns(2)
 
             with col1:
