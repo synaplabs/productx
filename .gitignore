@@ -1,4 +1,4 @@
-synap_labs_github_env/
+synap_labs_official_env/
 wandb/
 .env
 tasks.txt
@@ -6,3 +6,4 @@ __pycache__/
 .vscode/
 .streamlit/
 wandb-addons/
+.chroma/
