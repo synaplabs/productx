@@ -204,7 +204,7 @@ Only return the query nothing else.
     def _update_qa_chain(self):
         retriever = self.VECTORDB.as_retriever(search_kwargs={"k": 2})
 
-        self.QA_CHAIN_CHAT = ConversationalRetrievalChain.from_llm(llm=ChatOpenAI(model="gpt-4", temperature=0),
+        self.QA_CHAIN_CHAT = ConversationalRetrievalChain.from_llm(llm=ChatOpenAI(model="gpt-4", temperature=0, openai_api_key=st.secrets["OPENAI_API_KEY"], max_retries=6,),
                                                                    chain_type="stuff",
                                                                    retriever=retriever,
                                                                    return_source_documents=True,
