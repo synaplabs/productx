@@ -115,7 +115,7 @@ Only return the query nothing else.
         self.CHAT = ChatOpenAI(
             model="gpt-4",
             temperature=0,
-            openai_api_key=os.environ["OPENAI_API_KEY"],
+            openai_api_key=st.secrets["OPENAI_API_KEY"],
             max_retries=6,
         )
 
@@ -142,7 +142,7 @@ Only return the query nothing else.
         search = GoogleSearch({
             "q": search_query,
             "location": "Mumbai, Maharashtra, India",
-            "api_key": "d994f023f2a36c5cac2436830c57b3de8bca9b8bcbce61a4430521005c484974",
+            "api_key": st.secrets["SERPAPI_API_KEY"],
         })
 
         results = search.get_dict()
