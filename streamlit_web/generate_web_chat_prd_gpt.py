@@ -21,9 +21,10 @@ import time
 
 
 class PRD:
-    def __init__(self, product_name, product_description):
+    def __init__(self, product_name, product_description, serpapi_api_key):
         self.PRODUCT_NAME = product_name
         self.PRODUCT_DESCRIPTION = product_description
+        self.SERPAPI_API_KEY = serpapi_api_key
         self.PRD = ""  # Product Requirement Document in Markdown format
         self.VECTORDB = Chroma(embedding_function=OpenAIEmbeddings())
 
@@ -144,7 +145,7 @@ Only return the query nothing else.
         search = GoogleSearch({
             "q": search_query,
             "location": "Mumbai, Maharashtra, India",
-            "api_key": st.secrets["SERPAPI_API_KEY"],
+            "api_key": self.SERPAPI_API_KEY,
         })
 
         results = search.get_dict()
@@ -487,11 +488,12 @@ Include any information that is not present in the PRD but is important to the p
         return True
 
 
-def generate_web_chat_prd_gpt(product_name, product_description):
+def generate_web_chat_prd_gpt(product_name, product_description, serpapi_api_key):
     # product_name = "DateSmart"
     # product_description = "A dating app that encourages users to have a conversation with each other before deciding whether they want to match. While some dating apps allow direct messages, it is only for plus users, and only to a limited number of people. Our app’s focus is to encourage conversation first. The app ensures strict verification to prevent fraud, scamsters and fake accounts."
     product = PRD(product_name=product_name,
-                  product_description=product_description)
+                  product_description=product_description,
+                  serpapi_api_key=serpapi_api_key)
     product.initialize_prd()
     product.generate_prd()
     # product.save_prd()
