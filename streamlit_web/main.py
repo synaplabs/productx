@@ -32,6 +32,9 @@ def main():
     # )
     prd_version = "Web Chat PRD (GPT-4)"
 
+    st.text_input("SerpAPI Key:", value="", type="password")
+    st.write("SerpAPI API key can be obtained from [here](https://serpapi.com/)")
+
     if st.button("Get PRD", disabled=not (feature_name_input and feature_description_input)):
         for key in st.session_state.keys():
             del st.session_state[key]
