@@ -3,13 +3,14 @@ import time
 from generate_web_chat_prd_gpt import generate_web_chat_prd_gpt
 
 
-def get_prd(new_feature, new_feature_desc, prd_version):
+def get_prd(new_feature, new_feature_desc, prd_version, SERPAPI_API_KEY):
     wandb_name = f"{new_feature}_prd_{prd_version}"
     start_time = time.time()
 
     if prd_version == "Web Chat PRD (GPT-4)":
         output, cost = generate_web_chat_prd_gpt(product_name=new_feature,
-                                                 product_description=new_feature_desc)
+                                                 product_description=new_feature_desc,
+                                                 SERPAPI_API_KEY=SERPAPI_API_KEY,)
 
     # elif prd_version == "Chat PRD (Vertex AI)":
     #     output = generate_chat_prd_vertexai(
@@ -32,7 +33,7 @@ def main():
     # )
     prd_version = "Web Chat PRD (GPT-4)"
 
-    st.text_input("SerpAPI Key:", value="", type="password")
+    SERPAPI_API_KEY = st.text_input("SerpAPI Key:", value="", type="password")
     st.write("SerpAPI API key can be obtained from [here](https://serpapi.com/)")
 
     if st.button("Get PRD", disabled=not (feature_name_input and feature_description_input)):
@@ -42,7 +43,7 @@ def main():
         with st.spinner(text="Generating PRD..."):
             if 'output' not in st.session_state:
                 st.session_state.output, st.session_state.total_time, st.session_state.cost = get_prd(
-                    new_feature=feature_name_input, new_feature_desc=feature_description_input, prd_version=prd_version)
+                    new_feature=feature_name_input, new_feature_desc=feature_description_input, prd_version=prd_version, SERPAPI_API_KEY=SERPAPI_API_KEY)
                 st.session_state.edited_output = st.session_state.output
 
     if 'output' in st.session_state and 'total_time' in st.session_state and 'edited_output' in st.session_state:
