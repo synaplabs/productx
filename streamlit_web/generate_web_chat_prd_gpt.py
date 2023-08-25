@@ -6,18 +6,18 @@ from langchain.text_splitter import CharacterTextSplitter
 from langchain.vectorstores import Chroma
 from langchain.embeddings.openai import OpenAIEmbeddings
 from langchain.callbacks import get_openai_callback
+from llm import LLM
+import streamlit as st
 
 from serpapi import GoogleSearch
 import requests
 from bs4 import BeautifulSoup
-import streamlit as st
 
 import wandb
 from wandb.integration.langchain import WandbTracer
 import os
 import json
-
-placeholder = st.empty()
+import time
 
 
 class PRD:
@@ -112,12 +112,14 @@ Only return the query nothing else.
             input_variables=["history", "input"],
         )
 
-        self.CHAT = ChatOpenAI(
-            model="gpt-4",
-            temperature=0,
-            openai_api_key=st.secrets["OPENAI_API_KEY"],
-            max_retries=6,
-        )
+        # self.CHAT = ChatOpenAI(
+        #     model="gpt-4",
+        #     temperature=0,
+        #     openai_api_key=os.environ["OPENAI_API_KEY"],
+        #     max_retries=6,
+        # )
+
+        self.CHAT = LLM(chat_model="openai").llm
 
         wandb.init(
             project="chat-prd-gpt-4-v1.4",
@@ -204,7 +206,7 @@ Only return the query nothing else.
     def _update_qa_chain(self):
         retriever = self.VECTORDB.as_retriever(search_kwargs={"k": 2})
 
-        self.QA_CHAIN_CHAT = ConversationalRetrievalChain.from_llm(llm=ChatOpenAI(model="gpt-4", temperature=0, openai_api_key=st.secrets["OPENAI_API_KEY"], max_retries=6,),
+        self.QA_CHAIN_CHAT = ConversationalRetrievalChain.from_llm(llm=ChatOpenAI(model="gpt-3.5-turbo-16k", temperature=0, max_retries=7, openai_api_key=st.secrets["OPENAI_API_KEY"]),
                                                                    chain_type="stuff",
                                                                    retriever=retriever,
                                                                    return_source_documents=True,
@@ -222,6 +224,8 @@ Only return the query nothing else.
         self.COST["prd"]["cost"] += callback_get_metrics_search_query.total_cost
         self.COST["prd"]["prompt_tokens"] += callback_get_metrics_search_query.prompt_tokens
         self.COST["prd"]["completion_tokens"] += callback_get_metrics_search_query.completion_tokens
+        print(f"PRD Tokens used: {self.COST['prd']['prompt_tokens'] + self.COST['prd']['completion_tokens']}")
+        print(f"Metrics search query: {self.METRICS_SEARCH_QUERY}")
 
         return True
 
@@ -234,12 +238,17 @@ Only return the query nothing else.
                 }
             )
 
-        self.METRICS_INFO = db_res["answer"] + "\n Web Source: " + \
-            db_res['source_documents'][0].metadata['source']
+        try:
+            self.METRICS_INFO = db_res["answer"] + "\n Web Source: " + \
+                db_res['source_documents'][0].metadata['source']
+        except Exception as e:
+            print(f"Error: {e}")
+            self.METRICS_INFO = db_res["answer"]
 
         self.COST["db"]["cost"] += callback_query_metrics_db.total_cost
         self.COST["db"]["prompt_tokens"] += callback_query_metrics_db.prompt_tokens
         self.COST["db"]["completion_tokens"] += callback_query_metrics_db.completion_tokens
+        print(f"DB Tokens used: {self.COST['db']['prompt_tokens'] + self.COST['db']['completion_tokens']}")
 
         return True
 
@@ -250,10 +259,13 @@ Only return the query nothing else.
                 callbacks=[WandbTracer()]
             )
 
+        print(f"PRD Tokens used: {self.COST['prd']['prompt_tokens'] + self.COST['prd']['completion_tokens']}")
+        print(f"Competitor search query: {self.COMP_SEARCH_QUERY}")
+
         self.COST["prd"]["cost"] += callback_get_comp_search_query.total_cost
         self.COST["prd"]["prompt_tokens"] += callback_get_comp_search_query.prompt_tokens
         self.COST["prd"]["completion_tokens"] += callback_get_comp_search_query.completion_tokens
-
+        
         return True
 
     def _get_competitors_list(self, db_retrieval_query):
@@ -268,6 +280,7 @@ Only return the query nothing else.
         self.COST["db"]["cost"] += callback_get_competitors_list.total_cost
         self.COST["db"]["prompt_tokens"] += callback_get_competitors_list.prompt_tokens
         self.COST["db"]["completion_tokens"] += callback_get_competitors_list.completion_tokens
+        print(f"DB Tokens used: {self.COST['db']['prompt_tokens'] + self.COST['db']['completion_tokens']}")
 
         return True
 
@@ -290,12 +303,17 @@ Only return the query nothing else.
 
             with get_openai_callback() as callback_query_competitors_db:
                 for query, dict_key in zip(self.COMPETITOR_QUERIES, query_names):
-                    db_res = self.QA_CHAIN_CHAT(
-                        {
-                            "question": query.format(competitor=competitor),
-                            "chat_history": [],
-                        }
-                    )
+                    try:
+                        db_res = self.QA_CHAIN_CHAT(
+                            {
+                                "question": query.format(competitor=competitor),
+                                "chat_history": [],
+                            }
+                        )
+                    except Exception as e:
+                        print(f"Error: {e}")
+                        time.sleep(60)
+                        continue
                     self.COMP_ANALYSIS_RESULTS[competitor][dict_key] = db_res["answer"] + \
                         "\n Web Source: " + \
                         db_res['source_documents'][0].metadata['source']
@@ -305,6 +323,7 @@ Only return the query nothing else.
             self.COST["db"]["cost"] += callback_query_competitors_db.total_cost
             self.COST["db"]["prompt_tokens"] += callback_query_competitors_db.prompt_tokens
             self.COST["db"]["completion_tokens"] += callback_query_competitors_db.completion_tokens
+            print(f"DB Tokens used: {self.COST['db']['prompt_tokens'] + self.COST['db']['completion_tokens']}")
 
         return True
 
@@ -329,9 +348,7 @@ Only return the query nothing else.
         return True
 
     def _get_web_data(self):
-        placeholder.text = "Getting Metrics data..."
         assert self._get_metrics_info()
-        placeholder.text = "Performing Competitive Analysis..."
         assert self._get_competitors_info()
 
         self.WEB_PROMPTS_LIST = [
@@ -407,13 +424,13 @@ Include any information that is not present in the PRD but is important to the p
                     callbacks=[WandbTracer()]
                 )
                 self.PRD += "\n\n"
-                placeholder.text = f"Local Prompt {self.LOCAL_PROMPTS_LIST.index(prompt) + 1} completed out of {len(self.LOCAL_PROMPTS_LIST)}."
                 print(
                     f"Prompt {self.LOCAL_PROMPTS_LIST.index(prompt) + 1} completed out of {len(self.LOCAL_PROMPTS_LIST)}.")
 
         self.COST["prd"]["cost"] = callback_local_prompts.total_cost
         self.COST["prd"]["prompt_tokens"] = callback_local_prompts.prompt_tokens
         self.COST["prd"]["completion_tokens"] = callback_local_prompts.completion_tokens
+        print(f"PRD Tokens used: {self.COST['prd']['prompt_tokens'] + self.COST['prd']['completion_tokens']}")
 
         return True
 
@@ -424,18 +441,23 @@ Include any information that is not present in the PRD but is important to the p
 
         with get_openai_callback() as callback_web_prompts:
             for prompt in self.WEB_PROMPTS_LIST:
-                self.PRD += self.CHAIN.predict(
-                    input=prompt,
-                    callbacks=[WandbTracer()]
-                )
-                self.PRD += "\n\n"
-                placeholder.text = f"Web Prompt {self.WEB_PROMPTS_LIST.index(prompt) + 1} completed out of {len(self.WEB_PROMPTS_LIST)}."
-                print(
-                    f"Prompt {self.WEB_PROMPTS_LIST.index(prompt) + 1} completed out of {len(self.WEB_PROMPTS_LIST)}.")
+
+                try:
+                    self.PRD += self.CHAIN.predict(
+                        input=prompt,
+                        callbacks=[WandbTracer()]
+                    )
+                    self.PRD += "\n\n"
+                    print(
+                        f"Prompt {self.WEB_PROMPTS_LIST.index(prompt) + 1} completed out of {len(self.WEB_PROMPTS_LIST)}.")
+                except Exception as e:
+                    print(f"Error: {e}")
+                    continue
 
         self.COST["prd"]["cost"] += callback_web_prompts.total_cost
         self.COST["prd"]["prompt_tokens"] += callback_web_prompts.prompt_tokens
         self.COST["prd"]["completion_tokens"] += callback_web_prompts.completion_tokens
+        print(f"PRD Tokens used: {self.COST['prd']['prompt_tokens'] + self.COST['prd']['completion_tokens']}")
 
         return True
 
@@ -459,13 +481,13 @@ Include any information that is not present in the PRD but is important to the p
         if not os.path.exists(f"../generated_prds/{self.PRODUCT_NAME}"):
             os.makedirs(f"../generated_prds/{self.PRODUCT_NAME}")
 
-        with open(f"../generated_prds/{self.PRODUCT_NAME}/{self.PRODUCT_NAME} v1.4.2 copy Chat gpt-4.md", "w") as f:
+        with open(f"../generated_prds/{self.PRODUCT_NAME}/{self.PRODUCT_NAME} v1.4.3 copy Chat gpt-4.md", "w") as f:
             f.write(self.PRD)
 
         return True
 
 
-def main(product_name, product_description):
+def generate_web_chat_prd_gpt(product_name, product_description):
     # product_name = "DateSmart"
     # product_description = "A dating app that encourages users to have a conversation with each other before deciding whether they want to match. While some dating apps allow direct messages, it is only for plus users, and only to a limited number of people. Our app’s focus is to encourage conversation first. The app ensures strict verification to prevent fraud, scamsters and fake accounts."
     product = PRD(product_name=product_name,
@@ -476,7 +498,3 @@ def main(product_name, product_description):
     wandb.finish()
 
     return product.PRD, product.COST
-
-
-# if __name__ == "__main__":
-#     main()

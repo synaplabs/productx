@@ -1,6 +1,6 @@
 import streamlit as st
 import time
-from generate_web_chat_prd_gpt import main as generate_web_chat_prd_gpt
+from generate_web_chat_prd_gpt import generate_web_chat_prd_gpt
 
 
 def get_prd(new_feature, new_feature_desc, prd_version):
@@ -22,9 +22,9 @@ def get_prd(new_feature, new_feature_desc, prd_version):
 
 def main():
     feature_name_input = st.text_input(
-        "Feature Name:", value="Dual Camera Activation Button")
+        "Feature Name:", value="DateSmart")
     feature_description_input = st.text_input(
-        "Feature Description:", value="Enables users to capture photos from both front and back cameras simultaneously.")
+        "Feature Description:", value="A dating app that encourages users to have a conversation with each other before deciding whether they want to match. While some dating apps allow direct messages, it is only for plus users, and only to a limited number of people. Our app’s focus is to encourage conversation first. The app ensures strict verification to prevent fraud, scamsters and fake accounts.")
 
     # Create a button and check if both text input fields are not empty before enabling it
     # prd_version = st.radio(
@@ -44,9 +44,12 @@ def main():
 
     if 'output' in st.session_state and 'total_time' in st.session_state and 'edited_output' in st.session_state:
         if st.session_state.cost is not None:
-            total_cost = st.session_state.cost["prd"]["cost"] + st.session_state.cost["db"]["cost"]
-            prompt_tokens = st.session_state.cost["prd"]["prompt_tokens"] + st.session_state.cost["db"]["prompt_tokens"]
-            completion_tokens = st.session_state.cost["prd"]["completion_tokens"] + st.session_state.cost["db"]["completion_tokens"]
+            total_cost = st.session_state.cost["prd"]["cost"] + \
+                st.session_state.cost["db"]["cost"]
+            prompt_tokens = st.session_state.cost["prd"]["prompt_tokens"] + \
+                st.session_state.cost["db"]["prompt_tokens"]
+            completion_tokens = st.session_state.cost["prd"]["completion_tokens"] + \
+                st.session_state.cost["db"]["completion_tokens"]
             st.write(f"Total cost: ${total_cost:.2f}")
             st.write(f"Prompt Tokens: {prompt_tokens:,}")
             st.write(f"Completion tokens: {completion_tokens:,}")
