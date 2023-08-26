@@ -9,17 +9,19 @@ load_dotenv()
 
 
 class SerpApiClient:
-    """Client for SerpApi.
-
-    Args:
-        api_key (str, optional): SerpApi API key. Defaults to st.secrets["SERPAPI_API_KEY"].
+    """
+    Client for SerpApi.
     """
 
-    def __init__(self, api_key: str = st.secrets["SERPAPI_API_KEY"]):
+    def __init__(self, api_key: str):
+        """
+        Args:
+        api_key (str): SerpApi API key.
+        """
         self.api_key = api_key
 
 
-    def webpages_from_serpapi(self, query: str, num_results: int = 3) -> list:
+    def webpages_from_serpapi(self, query: str, num_results: int = 3) -> list[tuple([str, str, str])]:
         """Get webpages from SerpApi.
 
         Args:
@@ -27,7 +29,7 @@ class SerpApiClient:
             num_results (int): Number of results to return.
 
         Returns:
-            list: List of webpages. Each webpage is a tuple of (title, link, webpage). webpage is a string of all the paragraphs (<p></p>) in the webpage with 100+ characters.
+            list[tuple([str, str, str])]: List of webpages. Each webpage is a tuple of (title, link, webpage). webpage is a string of all the paragraphs (<p></p>) in the webpage with 100+ characters.
         """
 
         params = {

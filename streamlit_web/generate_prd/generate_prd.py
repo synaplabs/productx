@@ -5,6 +5,19 @@ import json
 
 
 def generate_prd(product_name: str, product_description: str, serpapi_api_key: str):
+    """
+    Generate PRD.
+
+    Args:
+        product_name (str): Product name.
+        product_description (str): Product description.
+        serpapi_api_key (str): SerpAPI API key.
+
+    Returns:
+        str: PRD.
+        dict: Cost.
+        float: total time taken.
+    """
     prd = PRD(
         product_name=product_name,
         product_description=product_description,
@@ -21,6 +34,6 @@ def generate_prd(product_name: str, product_description: str, serpapi_api_key: s
     total_time = time.strftime("%M:%S", time.gmtime(total_time))
 
     print(f"Time taken: {total_time}")
-    print(json.dumps(prd.COST, indent=4))
+    print(json.dumps(prd.cost, indent=4))
 
-    return prd.document, prd.COST, total_time
+    return prd.document, prd.cost, total_time

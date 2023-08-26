@@ -2,7 +2,20 @@ import streamlit as st
 from generate_prd.generate_prd import generate_prd
 
 
-def get_prd(product_name: str, product_description: str, serpapi_api_key: str) -> (str, float, dict):
+def get_prd(product_name: str, product_description: str, serpapi_api_key: str) -> (str, dict, float):
+    """
+    Generate PRD.
+
+    Args:
+        product_name (str): Product name.
+        product_description (str): Product description.
+        serpapi_api_key (str): SerpAPI API key.
+
+    Returns:
+        str: PRD.
+        dict: Cost.
+        float: total time taken.
+    """
     output, cost, total_time = generate_prd(
         product_name=product_name,
         product_description=product_description,

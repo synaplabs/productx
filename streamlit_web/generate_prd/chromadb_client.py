@@ -25,7 +25,6 @@ class ChromaDBClient:
             Each webpage is a tuple of (title, link, content).
             content is a string of all the paragraphs (<p></p>) in the webpage with 100+ characters.
         """
-
         for title, link, webpage in content:
             print(f"Storing {title}")
             doc = self.text_splitter.create_documents(

@@ -12,7 +12,17 @@ load_dotenv()
 
 
 class LLM:
-    def __init__(self, chat_model: str = "openai-gpt-4" or "openai-gpt-3.5" or "vertexai" or "anthropic"):
+    """
+    Language Model Manager.
+    """
+    def __init__(self, chat_model: str = "openai-gpt-4"):
+        """
+        Args:
+            chat_model (str, optional): Chat model to use. Defaults to "openai-gpt-4". Must be one of "openai-gpt-4", "openai-gpt-3.5", "vertexai", or "anthropic".
+
+        Raises:
+            ValueError: Invalid chat_model value.
+        """
         self.chat_model = chat_model
         self.model_initialization_functions = {
             "openai-gpt-4": self._init_gpt4_model,
@@ -34,6 +44,12 @@ class LLM:
         )
 
     def initialize_model(self):
+        """
+        Initialize chat model.
+
+        Raises:
+            ValueError: Invalid chat_model value.
+        """
         if self.chat_model in self.model_initialization_functions:
             self.model_initialization_functions[self.chat_model]()
         else:
@@ -41,6 +57,9 @@ class LLM:
                 "Invalid chat_model value. Must be one of 'openai-gpt-4', 'openai-gpt-3.5', 'vertexai', or 'anthropic'")
 
     def _init_gpt4_model(self):
+        """
+        Initialization logic for the GPT-4 model.
+        """
         self.llm = ChatOpenAI(
             model="gpt-4",
             temperature=0,
@@ -49,6 +68,9 @@ class LLM:
         )
 
     def _init_gpt35_model(self):
+        """
+        Initialization logic for the GPT-3.5 (32k context length) model.
+        """
         self.llm = ChatOpenAI(
             model="gpt-3.5-turbo-16k",
             temperature=0,
@@ -57,6 +79,9 @@ class LLM:
         )
 
     def _init_vertexai_model(self):
+        """
+        Initialization logic for the VertexAI model.
+        """
         _credentials = service_account.Credentials.from_service_account_file(
             filename=st.secrets["GOOGLE_APPLICATION_CREDENTIALS"]
         )
@@ -70,5 +95,7 @@ class LLM:
         )
 
     def _init_anthropic_model(self):
-        # Initialization logic for the anthropic model
+        """
+        Initialization logic for the anthropic model.
+        """
         pass

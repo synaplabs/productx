@@ -15,11 +15,26 @@ from wandb.integration.langchain import WandbTracer
 
 
 class PRD:
+    """
+    Product Requirements Document (PRD) generator.
+    """
+
     def __init__(self, product_name: str, product_description: str, serpapi_api_key: str) -> None:
+        """
+        Initialize PRD generator.
+
+        Args:
+            product_name (str): Product name.
+            product_description (str): Product description.
+            serpapi_api_key (str): SerpAPI API key.
+
+        Returns:
+            None
+        """
         self.product_name = product_name
         self.product_description = product_description
         self.document = ""
-        self.COST = {
+        self.cost = {
             "prd": {
                 "cost": 0,
                 "prompt_tokens": 0,
@@ -47,12 +62,31 @@ class PRD:
             name=f"{self.product_name}_prd_{self.chain.llm.model_name}",
         )
 
-    def add_cost(self, callback: OpenAICallbackHandler, src: str = "prd" or "db"):
-        self.COST[src]["cost"] += callback.total_cost
-        self.COST[src]["prompt_tokens"] += callback.prompt_tokens
-        self.COST[src]["completion_tokens"] += callback.completion_tokens
+    def add_cost(self, callback: OpenAICallbackHandler, src: str):
+        """
+        Add cost to cost dictionary.
+
+        Args:
+            callback (OpenAICallbackHandler): OpenAICallbackHandler instance.
+            src (str): Source of cost. Must be one of "prd" or "db".
+        """
+        if src not in ["prd", "db"]:
+            raise ValueError("Invalid src value. Must be one of 'prd' or 'db'")
+        
+        self.cost[src]["cost"] += callback.total_cost
+        self.cost[src]["prompt_tokens"] += callback.prompt_tokens
+        self.cost[src]["completion_tokens"] += callback.completion_tokens
 
     def local_prompts(self):
+        """
+        Pass local (prompts without live data) prompts to the model.
+
+        Args:
+            None
+
+        Returns:
+            None
+        """
         with get_openai_callback() as callback_local_prompts:
             _ = self.chain.predict(
                 input=prompts.INITIAL_PROMPT.format(
@@ -72,6 +106,19 @@ class PRD:
         self.add_cost(src="prd", callback=callback_local_prompts)
 
     def get_comp_info(self):
+        """
+        1. Get competitor search query.
+        2. Search for competitors.
+        3. Get competitors list by retrieving names from ChromaDB.
+        4. Get competitor info by searching
+        5. Retrieve competitor info from ChromaDB.
+
+        Args:
+            None
+
+        Returns:
+            None
+        """
         # Get competitor search query
         with get_openai_callback() as callback_get_comp_search_query:
             self.comp_search_query = self.chain.predict(
@@ -79,10 +126,6 @@ class PRD:
                 callbacks=[WandbTracer()],
             )
             print(f"Competitor search query: {self.comp_search_query}")
-            # check = input("Is the search query correct? (y/n): ")
-            # if check == "n":
-            #     self.comp_search_query = input(
-            #         "Enter the correct search query: ")
 
         self.add_cost(src="prd", callback=callback_get_comp_search_query)
 
@@ -100,11 +143,7 @@ class PRD:
             )
             self.competitors = self.competitors.replace(" ", "").split(",")
             print(f"Competitors: {self.competitors}")
-            # check = input("Are the competitors correct? (y/n): ")
-            # if check == "n":
-            #     self.competitors = input(
-            #         "Enter the correct competitors separated by commas: ").replace(" ", "").split(",")
-
+            
         self.add_cost(src="db", callback=callback_get_competitors_list)
         print(f"Competitors: {self.competitors}")
 
@@ -150,6 +189,18 @@ class PRD:
                 self.comp_analysis_results, indent=2)
 
     def get_metrics_info(self):
+        """
+        1. Get metrics search query.
+        2. Search for metrics.
+        3. Store metrics in ChromaDB.
+        4. Retrieve metrics info from ChromaDB.
+
+        Args:
+            None
+
+        Returns:
+            None
+        """
         # Get metrics search query
         with get_openai_callback() as callback_get_metrics_search_query:
             self.metrics_search_query = self.chain.predict(
@@ -157,10 +208,6 @@ class PRD:
                 callbacks=[WandbTracer()],
             )
             print(f"Metrics search query: {self.metrics_search_query}")
-            # check = input("Is the search query correct? (y/n): ")
-            # if check == "n":
-            #     self.metrics_search_query = input(
-            #         "Enter the correct search query: ")
 
         self.add_cost(src="prd", callback=callback_get_metrics_search_query)
 
@@ -189,6 +236,15 @@ class PRD:
         self.add_cost(src="db", callback=callback_query_metrics_db)
 
     def web_prompts(self):
+        """
+        Pass web (with realtime information) prompts to the model.
+
+        Args:
+            None
+
+        Returns:
+            None
+        """
         with get_openai_callback() as callback_web_prompts:
             for prompt in prompts.WEB_PROMPTS_LIST:
                 try:
@@ -210,5 +266,14 @@ class PRD:
         wandb.finish()
 
     def save_prd(self):
+        """
+        Save PRD to file.
+
+        Args:
+            None
+
+        Returns:
+            None
+        """
         with open(f"{self.product_name} PRD {self.chain.llm.model_name} web v1.1.5 2.md", "w") as f:
             f.write(self.document)
