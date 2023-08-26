@@ -2,6 +2,7 @@ from langchain.chat_models import ChatAnthropic, ChatVertexAI, ChatOpenAI
 from google.oauth2 import service_account
 from dotenv import load_dotenv
 import os
+import streamlit as st
 
 load_dotenv()
 
@@ -27,13 +28,13 @@ class LLM:
         self.llm = ChatOpenAI(
             model="gpt-4",
             temperature=0,
-            openai_api_key=os.getenv("OPENAI_API_KEY"),
+            openai_api_key=st.secrets["OPENAI_API_KEY"],
             max_retries=7,
         )
 
     def init_vertexai_model(self):
         _credentials = service_account.Credentials.from_service_account_file(
-            filename=os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
+            filename=st.secrets["GOOGLE_APPLICATION_CREDENTIALS"]
         )
         self.llm = ChatVertexAI(
             model_name="chat-bison",
