@@ -6,3 +6,6 @@ __pycache__/
 .streamlit/
 wandb-addons/
 .chroma/
+vertexai-service-acc.json
+generated_prds/
+web-retrieval-diagram.drawio

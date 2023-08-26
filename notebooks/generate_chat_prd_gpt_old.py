@@ -6,6 +6,7 @@ from langchain.text_splitter import CharacterTextSplitter
 from langchain.vectorstores import Chroma
 from langchain.embeddings.openai import OpenAIEmbeddings
 from langchain.callbacks import get_openai_callback
+from llm import LLM
 
 from serpapi import GoogleSearch
 import requests
@@ -15,6 +16,7 @@ import wandb
 from wandb.integration.langchain import WandbTracer
 import os
 import json
+import time
 
 
 class PRD:
@@ -109,12 +111,14 @@ Only return the query nothing else.
             input_variables=["history", "input"],
         )
 
-        self.CHAT = ChatOpenAI(
-            model="gpt-4",
-            temperature=0,
-            openai_api_key=os.environ["OPENAI_API_KEY"],
-            max_retries=6,
-        )
+        # self.CHAT = ChatOpenAI(
+        #     model="gpt-4",
+        #     temperature=0,
+        #     openai_api_key=os.environ["OPENAI_API_KEY"],
+        #     max_retries=6,
+        # )
+
+        self.CHAT = LLM(chat_model="vertexai").llm
 
         wandb.init(
             project="chat-prd-gpt-4-v1.4",
@@ -139,7 +143,7 @@ Only return the query nothing else.
         search = GoogleSearch({
             "q": search_query,
             "location": "Mumbai, Maharashtra, India",
-            "api_key": "d994f023f2a36c5cac2436830c57b3de8bca9b8bcbce61a4430521005c484974",
+            "api_key": os.getenv("SERPAPI_API_KEY"),
         })
 
         results = search.get_dict()
@@ -201,20 +205,22 @@ Only return the query nothing else.
     def _update_qa_chain(self):
         retriever = self.VECTORDB.as_retriever(search_kwargs={"k": 2})
 
-        self.QA_CHAIN_CHAT = ConversationalRetrievalChain.from_llm(llm=ChatOpenAI(model="gpt-4", temperature=0),
+        self.QA_CHAIN_CHAT = ConversationalRetrievalChain.from_llm(llm=ChatOpenAI(model="gpt-3.5-turbo-16k", temperature=0, max_retries=7, openai_api_key=os.environ["OPENAI_API_KEY"]),
                                                                    chain_type="stuff",
                                                                    retriever=retriever,
                                                                    return_source_documents=True,
                                                                    )
 
         return True
-    
+
     def _get_metrics_search_query(self):
         with get_openai_callback() as callback_get_metrics_search_query:
             self.METRICS_SEARCH_QUERY = self.CHAIN.predict(
                 input=self.METRICS_SEARCH_QUERY_PROMPT,
-                callbacks=[WandbTracer()]
+                # callbacks=[WandbTracer()]
             )
+
+        print(f"Metrics search query: {self.METRICS_SEARCH_QUERY}")
 
         self.COST["prd"]["cost"] += callback_get_metrics_search_query.total_cost
         self.COST["prd"]["prompt_tokens"] += callback_get_metrics_search_query.prompt_tokens
@@ -231,8 +237,12 @@ Only return the query nothing else.
                 }
             )
 
-        self.METRICS_INFO = db_res["answer"] + "\n Web Source: " + \
-            db_res['source_documents'][0].metadata['source']
+        try:
+            self.METRICS_INFO = db_res["answer"] + "\n Web Source: " + \
+                db_res['source_documents'][0].metadata['source']
+        except Exception as e:
+            print(f"Error: {e}")
+            self.METRICS_INFO = db_res["answer"]
 
         self.COST["db"]["cost"] += callback_query_metrics_db.total_cost
         self.COST["db"]["prompt_tokens"] += callback_query_metrics_db.prompt_tokens
@@ -244,8 +254,10 @@ Only return the query nothing else.
         with get_openai_callback() as callback_get_comp_search_query:
             self.COMP_SEARCH_QUERY = self.CHAIN.predict(
                 input=self.COMP_SEARCH_QUERY_PROMPT,
-                callbacks=[WandbTracer()]
+                # callbacks=[WandbTracer()]
             )
+
+        print(f"Competitor search query: {self.COMP_SEARCH_QUERY}")
 
         self.COST["prd"]["cost"] += callback_get_comp_search_query.total_cost
         self.COST["prd"]["prompt_tokens"] += callback_get_comp_search_query.prompt_tokens
@@ -287,15 +299,24 @@ Only return the query nothing else.
 
             with get_openai_callback() as callback_query_competitors_db:
                 for query, dict_key in zip(self.COMPETITOR_QUERIES, query_names):
-                    db_res = self.QA_CHAIN_CHAT(
-                        {
-                            "question": query.format(competitor=competitor),
-                            "chat_history": [],
-                        }
-                    )
-                    self.COMP_ANALYSIS_RESULTS[competitor][dict_key] = db_res["answer"] + \
-                        "\n Web Source: " + \
-                        db_res['source_documents'][0].metadata['source']
+                    try:
+                        db_res = self.QA_CHAIN_CHAT(
+                            {
+                                "question": query.format(competitor=competitor),
+                                "chat_history": [],
+                            }
+                        )
+                    except Exception as e:
+                        print(f"Error: {e}")
+                        time.sleep(60)
+                        continue
+                    try:
+                        self.COMP_ANALYSIS_RESULTS[competitor][dict_key] = db_res["answer"] + \
+                            "\n Web Source: " + \
+                            db_res['source_documents'][0].metadata['source']
+                    except Exception as e:
+                        print(f"Error: {e}")
+                        self.COMP_ANALYSIS_RESULTS[competitor][dict_key] = db_res["answer"]
 
             self.COMP_ANALYSIS_RESULTS_STR = json.dumps(
                 self.COMP_ANALYSIS_RESULTS, indent=2)
@@ -317,7 +338,8 @@ Only return the query nothing else.
         assert self._get_comp_search_query()
         assert self._search_and_embed(search_query=self.COMP_SEARCH_QUERY)
         assert self._update_qa_chain()
-        assert self._get_competitors_list(db_retrieval_query=self.COMP_SEARCH_QUERY)
+        assert self._get_competitors_list(
+            db_retrieval_query=self.COMP_SEARCH_QUERY)
 
         assert self._search_competitors_info()
 
@@ -392,14 +414,14 @@ Include any information that is not present in the PRD but is important to the p
     def local_prompts(self):
         _ = self.CHAIN.predict(
             input=self.INITIAL_PROMPT,
-            callbacks=[WandbTracer()]
+            # callbacks=[WandbTracer()]
         )
 
         with get_openai_callback() as callback_local_prompts:
             for prompt in self.LOCAL_PROMPTS_LIST:
                 self.PRD += self.CHAIN.predict(
                     input=prompt,
-                    callbacks=[WandbTracer()]
+                    # callbacks=[WandbTracer()]
                 )
                 self.PRD += "\n\n"
                 print(
@@ -420,7 +442,7 @@ Include any information that is not present in the PRD but is important to the p
             for prompt in self.WEB_PROMPTS_LIST:
                 self.PRD += self.CHAIN.predict(
                     input=prompt,
-                    callbacks=[WandbTracer()]
+                    # callbacks=[WandbTracer()]
                 )
                 self.PRD += "\n\n"
                 print(
@@ -452,7 +474,7 @@ Include any information that is not present in the PRD but is important to the p
         if not os.path.exists(f"../generated_prds/{self.PRODUCT_NAME}"):
             os.makedirs(f"../generated_prds/{self.PRODUCT_NAME}")
 
-        with open(f"../generated_prds/{self.PRODUCT_NAME}/{self.PRODUCT_NAME} v1.4.2 copy Chat gpt-4.md", "w") as f:
+        with open(f"../generated_prds/{self.PRODUCT_NAME}/{self.PRODUCT_NAME} v1.4.4 copy Chat gpt-4.md", "w") as f:
             f.write(self.PRD)
 
         return True
@@ -466,7 +488,7 @@ def main():
     product.initialize_prd()
     product.generate_prd()
     product.save_prd()
-    wandb.finish()
+    # wandb.finish()
 
 
 if __name__ == "__main__":
