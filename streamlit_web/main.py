@@ -3,7 +3,7 @@ from generate_prd.generate_prd import generate_prd
 from tempfile import NamedTemporaryFile
 
 
-def get_prd(product_name: str, product_description: str, serpapi_api_key: str, input_prd_template_file_path: str) -> (str, dict, float):
+def get_prd(product_name: str, product_description: str, serpapi_api_key: str, input_prd_template_file_path: str = None) -> (str, dict, float):
     """
     Generate PRD.
 
@@ -29,14 +29,12 @@ def get_prd(product_name: str, product_description: str, serpapi_api_key: str, i
 
 
 def main():
-    st.markdown("### Product Name")
-    product_name_input = st.text_input(label="", value="DateSmart")
-    st.markdown("### Product Description")
+    product_name_input = st.text_input(
+        "Product Name:", value="DateSmart")
     product_description_input = st.text_input(
-        "", value="A dating app that encourages users to have a conversation with each other before deciding whether they want to match. While some dating apps allow direct messages, it is only for plus users, and only to a limited number of people. Our app’s focus is to encourage conversation first. The app ensures strict verification to prevent fraud, scamsters and fake accounts.")
+        "Product Description:", value="A dating app that encourages users to have a conversation with each other before deciding whether they want to match. While some dating apps allow direct messages, it is only for plus users, and only to a limited number of people. Our app’s focus is to encourage conversation first. The app ensures strict verification to prevent fraud, scamsters and fake accounts.")
 
-    st.markdown("### SerpAPI Key")
-    serpapi_api_key = st.text_input("", value="", type="password")
+    serpapi_api_key = st.text_input("SerpAPI Key:", value="", type="password")
 
     st.write(
         "SerpAPI API key can be obtained from [here](https://serpapi.com/)")
@@ -48,6 +46,8 @@ def main():
         with NamedTemporaryFile(delete=False) as input_prd_template_file:
             input_prd_template_file.write(pdf_file.getvalue())
             input_prd_template_file_path = input_prd_template_file.name
+    else:
+        input_prd_template_file_path = None
 
     if st.button("Get PRD", disabled=not (product_name_input and product_description_input)):
         for key in st.session_state.keys():
