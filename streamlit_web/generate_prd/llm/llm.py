@@ -4,7 +4,7 @@ from langchain.chains import LLMChain
 from langchain.prompts import PromptTemplate
 from google.oauth2 import service_account
 from dotenv import load_dotenv
-import generate_prd.prompts as prompts
+import generate_prd.prompts.prompts as prompts
 import os
 import streamlit as st
 

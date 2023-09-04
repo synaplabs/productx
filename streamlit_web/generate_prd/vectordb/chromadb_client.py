@@ -1,7 +1,7 @@
 from langchain.vectorstores import Chroma
 from langchain.chains import ConversationalRetrievalChain
 from langchain.text_splitter import CharacterTextSplitter
-from generate_prd.llm import LLM
+from generate_prd.llm.llm import LLM
 
 
 class ChromaDBClient:
@@ -25,6 +25,9 @@ class ChromaDBClient:
             Each webpage is a tuple of (title, link, content).
             content is a string of all the paragraphs (<p></p>) in the webpage with 100+ characters.
         """
+        if len(content[0]) != 3:
+            print(f"Invalid content: {content}")
+            return None
         for title, link, webpage in content:
             print(f"Storing {title}")
             doc = self.text_splitter.create_documents(

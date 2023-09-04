@@ -1,15 +1,17 @@
 from langchain.vectorstores import Chroma
 from langchain.embeddings import OpenAIEmbeddings
 from langchain.callbacks import get_openai_callback, OpenAICallbackHandler
+from langchain.document_loaders import PyPDFLoader
 
-from generate_prd.chromadb_client import ChromaDBClient
-from generate_prd.serpapi_client import SerpApiClient
-from generate_prd.llm import LLM
-import generate_prd.prompts as prompts
+from generate_prd.vectordb.chromadb_client import ChromaDBClient
+from generate_prd.web_search.serpapi_client import SerpApiClient
+from generate_prd.llm.llm import LLM
+import generate_prd.prompts.prompts as prompts
 
 import os
 import time
 import json
+import re
 import wandb
 from wandb.integration.langchain import WandbTracer
 
@@ -19,7 +21,7 @@ class PRD:
     Product Requirements Document (PRD) generator.
     """
 
-    def __init__(self, product_name: str, product_description: str, serpapi_api_key: str) -> None:
+    def __init__(self, product_name: str, product_description: str, serpapi_api_key: str, input_prd_template_file_path: str = None) -> None:
         """
         Initialize PRD generator.
 
@@ -27,12 +29,15 @@ class PRD:
             product_name (str): Product name.
             product_description (str): Product description.
             serpapi_api_key (str): SerpAPI API key.
+            input_prd_template_file_path (str): Input PRD template file path - created using `tempfile.NamedTemporaryFile`
 
         Returns:
             None
         """
         self.product_name = product_name
         self.product_description = product_description
+        self.serpapi_api_key = serpapi_api_key
+        self.input_prd_template_file_path = input_prd_template_file_path
         self.document = ""
         self.cost = {
             "prd": {
@@ -47,10 +52,13 @@ class PRD:
             }
         }
 
-        self.chain = LLM(chat_model="openai-gpt-4").chain
+        self.LLM = LLM(chat_model="openai-gpt-4") 
+        self.chain = self.LLM.chain
+        # self.llm = self.LLM.llm
+        
         self.chroma = ChromaDBClient(chromadb=Chroma(
             embedding_function=OpenAIEmbeddings()))
-        self.serpapi = SerpApiClient(api_key=serpapi_api_key)
+        self.serpapi = SerpApiClient(api_key=self.serpapi_api_key)
 
         wandb.init(
             project=f"{self.product_name}_prd_{self.chain.llm.model_name}",
@@ -77,9 +85,9 @@ class PRD:
         self.cost[src]["prompt_tokens"] += callback.prompt_tokens
         self.cost[src]["completion_tokens"] += callback.completion_tokens
 
-    def local_prompts(self):
+    def get_prompts_from_pdf(self):
         """
-        Pass local (prompts without live data) prompts to the model.
+        Get prompts from PDF.
 
         Args:
             None
@@ -87,25 +95,127 @@ class PRD:
         Returns:
             None
         """
+        loader = PyPDFLoader(self.input_prd_template_file_path)
+        pages = loader.load_and_split()
+
+        self.chroma.chromadb.add_documents(documents=pages)
+        self.chroma.update_qa_chain(k=2)
+
+        with get_openai_callback() as callback_get_prompts_from_pdf:
+            pdf_prompts, source_docs = self.chroma.ask_with_source("""\
+Given this document containing PRD requirements in paragraphs, generate a PRD template following the below given structure:
+
+# PRD Template
+
+## Section (give a name to the section)
+Description of section. What is the purpose of this section? What is the expected output of this section? 
+
+### Subsection Name (give a name to the subsection) - only create if needed
+
+Table (if needed):
+|          	| Column - 1 	| Column - 2 	| Add more 	|
+|----------	|------------	|------------	|----------	|
+| Item - 1 	|            	|            	|          	|
+| Item - 2 	|            	|            	|          	|
+| Add more 	|            	|            	|          	|
+""")
+
+        self.add_cost(src="db", callback=callback_get_prompts_from_pdf)
+
+        pdf_prompt_sections = re.split(r'\n##\s+', pdf_prompts)[1:]
+        pdf_prompt_list = ["## " + section.strip() for section in pdf_prompt_sections]
+
+        our_local_prompts = "\n\n".join(prompts.LOCAL_PROMPTS_LIST)
+        our_web_prompts = "\n\n".join(prompts.WEB_PROMPTS_LIST)
+
+        with get_openai_callback() as callback_get_prompts_from_pdf:
+            final_prompts = self.LLM.llm.predict(text=f"""\
+There are 2 PRD generation prompt sets. Ours and PDF's.
+
+Our prompts are divided into 2 categories: Local and Web.
+
+Local prompts are the ones which do not require any external research.
+Web prompts are the ones which require external data to be fed into the model.
+
+PDF prompts are the ones which are extracted from the PDF.
+Generate a super set of all of these prompts with only the important and unique prompts. 
+Exclude prompts that are repeated and not needed.
+For example, if both sets have similar prompts:
+'Product description' and 'product summary', then only keep one of them.
+Format the prompts in a markdown structure.
+In addition, limit the total number of prompts to 11.
+The first 6 prompts should be local prompts. They can be from either set.
+The web prompts should be from 7 to 11. They have to be from the web prompts set.
+The result should only have the list of prompts. No other text. No web/local prompt separation.
+
+Incase of Market Research, Competitive Analysis, and Success Metrics from 'Our web prompts', \
+use those prompts as it is. Do not change them. Only add to them if you think it is necessary.
+
+Use the below given structure for the PRD template:               
+# PRD Template
+
+## Section (give a name to the section)
+Description of section. What is the purpose of this section? What is the expected output of this section? 
+
+### Subsection Name (give a name to the subsection) - only create if needed
+
+Table (if needed):
+|          	| Column - 1 	| Column - 2 	| Add more 	|
+|----------	|------------	|------------	|----------	|
+| Item - 1 	|            	|            	|          	|
+| Item - 2 	|            	|            	|          	|
+| Add more 	|            	|            	|          	|
+
+Our local prompts:
+{our_local_prompts}
+
+Our web prompts:
+{our_web_prompts}
+
+PDF prompts:
+{pdf_prompts}
+""")
+            
+        self.add_cost(src="prd", callback=callback_get_prompts_from_pdf)
+
+        final_prompts_sections = re.split(r'\n##\s+', final_prompts)[1:]
+        final_prompts_list = ["## " + section.strip() for section in final_prompts_sections]
+        self.final_local_prompts_list = final_prompts_list[:6]
+        self.final_web_prompts_list = final_prompts_list[6:]
+
+        with open("final_prompts.txt", "w") as f:
+            f.write(final_prompts)
+    
+    def local_prompts(self, initial_prompt: str = prompts.INITIAL_PROMPT, local_prompts_list: list = prompts.LOCAL_PROMPTS_LIST):
+        """
+        Pass local (prompts without live data) prompts to the model.
+
+        Args:
+            initial_prompt (str): Initial prompt.
+            local_prompts_list (list): List of local prompts.
+
+        Returns:
+            None
+        """
         with get_openai_callback() as callback_local_prompts:
             _ = self.chain.predict(
-                input=prompts.INITIAL_PROMPT.format(
+                input=initial_prompt.format(
                     product_name=self.product_name, product_description=self.product_description),
                 callbacks=[WandbTracer()],
             )
 
-            for prompt in prompts.LOCAL_PROMPTS_LIST:
+            for prompt in local_prompts_list:
                 self.document += self.chain.predict(
                     input=prompt,
                     callbacks=[WandbTracer()],
                 ) + "\n\n"
 
                 print(
-                    f"Local prompt {prompts.LOCAL_PROMPTS_LIST.index(prompt) + 1} completed out of {len(prompts.LOCAL_PROMPTS_LIST)}.")
+                    f"Local prompt {local_prompts_list.index(prompt) + 1} completed out of {len(local_prompts_list)}.")
 
         self.add_cost(src="prd", callback=callback_local_prompts)
 
-    def get_comp_info(self):
+    def get_comp_info(self, comp_search_query_prompt: str = prompts.COMP_SEARCH_QUERY_PROMPT, comp_queries: str = prompts.COMPETITOR_QUERIES):
         """
         1. Get competitor search query.
         2. Search for competitors.
@@ -114,7 +224,8 @@ class PRD:
         5. Retrieve competitor info from ChromaDB.
 
         Args:
-            None
+            comp_search_query_prompt (str): Competitor search query prompt.
+            comp_queries (str): Competitor info queries.
 
         Returns:
             None
@@ -122,7 +233,7 @@ class PRD:
         # Get competitor search query
         with get_openai_callback() as callback_get_comp_search_query:
             self.comp_search_query = self.chain.predict(
-                input=prompts.COMP_SEARCH_QUERY_PROMPT,
+                input=comp_search_query_prompt,
                 callbacks=[WandbTracer()],
             )
             print(f"Competitor search query: {self.comp_search_query}")
@@ -151,7 +262,7 @@ class PRD:
         for competitor in self.competitors:
             print(f"Searching info for {competitor}")
 
-            for query in prompts.COMPETITOR_QUERIES:
+            for query in comp_queries:
                 self.serpapi.webpages_from_serpapi(
                     query=query.format(competitor=competitor),
                     num_results=3
@@ -167,7 +278,7 @@ class PRD:
             print(f"Retrieving info for {competitor}")
 
             with get_openai_callback() as callback_query_competitors_db:
-                for query, dict_key in zip(prompts.COMPETITOR_QUERIES, query_names):
+                for query, dict_key in zip(comp_queries, query_names):
                     try:
                         answer, source_documents = self.chroma.ask_with_source(
                             query=query.format(competitor=competitor))
@@ -188,7 +299,7 @@ class PRD:
             self.comp_analysis_results_str = json.dumps(
                 self.comp_analysis_results, indent=2)
 
-    def get_metrics_info(self):
+    def get_metrics_info(self, metrics_search_query_prompt: str = prompts.METRICS_SEARCH_QUERY_PROMPT):
         """
         1. Get metrics search query.
         2. Search for metrics.
@@ -196,7 +307,7 @@ class PRD:
         4. Retrieve metrics info from ChromaDB.
 
         Args:
-            None
+            metrics_search_query_prompt (str): Metrics search query prompt.
 
         Returns:
             None
@@ -204,7 +315,7 @@ class PRD:
         # Get metrics search query
         with get_openai_callback() as callback_get_metrics_search_query:
             self.metrics_search_query = self.chain.predict(
-                input=prompts.METRICS_SEARCH_QUERY_PROMPT,
+                input=metrics_search_query_prompt,
                 callbacks=[WandbTracer()],
             )
             print(f"Metrics search query: {self.metrics_search_query}")
@@ -235,18 +346,18 @@ class PRD:
 
         self.add_cost(src="db", callback=callback_query_metrics_db)
 
-    def web_prompts(self):
+    def web_prompts(self, web_prompts_list: list = prompts.WEB_PROMPTS_LIST):
         """
         Pass web (with realtime information) prompts to the model.
 
         Args:
-            None
+            web_prompts_list (list): List of web prompts.
 
         Returns:
             None
         """
         with get_openai_callback() as callback_web_prompts:
-            for prompt in prompts.WEB_PROMPTS_LIST:
+            for prompt in web_prompts_list:
                 try:
                     self.document += self.chain.predict(
                         input=prompt.format(
@@ -256,11 +367,11 @@ class PRD:
                 except Exception as e:
                     print(f"Error: {e}")
                     print(
-                        f"Web prompt {prompts.WEB_PROMPTS_LIST.index(prompt) + 1} skipped out of {len(prompts.WEB_PROMPTS_LIST)}.")
+                        f"Web prompt {web_prompts_list.index(prompt) + 1} skipped out of {len(web_prompts_list)}.")
                     continue
 
                 print(
-                    f"Web prompt {prompts.WEB_PROMPTS_LIST.index(prompt) + 1} completed out of {len(prompts.WEB_PROMPTS_LIST)}.")
+                    f"Web prompt {web_prompts_list.index(prompt) + 1} completed out of {len(web_prompts_list)}.")
 
         self.add_cost(src="prd", callback=callback_web_prompts)
         wandb.finish()
